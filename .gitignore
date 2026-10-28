@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+
+# Test coverage
+coverage/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Secrets and private keys
+*.pem
+*.key
+secrets.json
+credentials.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
