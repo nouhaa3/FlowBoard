@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import CalendarPage from './CalendarPage.tsx'
 import MyTasksPage from './MyTasksPage.tsx'
 import ProjectsPage from './ProjectsPage.tsx'
+import SettingsPage from './SettingsPage.tsx'
 import { useTheme } from './ThemeProvider.tsx'
 
 type IconName = 'overview' | 'tasks' | 'projects' | 'calendar' | 'settings'
-type ActivePage = 'overview' | 'projects' | 'myTasks' | 'calendar'
+type ActivePage = 'overview' | 'projects' | 'myTasks' | 'calendar' | 'settings'
 type MetricIconName = 'projects' | 'tasks' | 'progress' | 'completed'
 type TaskStatus = 'To Do' | 'In Progress' | 'Done'
 
@@ -180,7 +181,9 @@ function App() {
         ? 'My Tasks'
         : activePage === 'calendar'
           ? 'Calendar'
-        : 'Overview'
+          : activePage === 'settings'
+            ? 'Settings'
+          : 'Overview'
   const pageSubtitle =
     activePage === 'projects'
       ? 'Organize your work and track progress across projects.'
@@ -188,7 +191,9 @@ function App() {
         ? 'Track priorities, deadlines, and progress across your work.'
         : activePage === 'calendar'
           ? 'See what’s due and plan your month.'
-        : 'A clear view of your work, all in one place.'
+          : activePage === 'settings'
+            ? 'Manage your profile, appearance, and workspace preferences.'
+          : 'A clear view of your work, all in one place.'
   const currentDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -219,6 +224,8 @@ function App() {
       setActivePage('myTasks')
     } else if (label === 'Calendar') {
       setActivePage('calendar')
+    } else if (label === 'Settings') {
+      setActivePage('settings')
     }
 
     closeSidebar()
@@ -267,7 +274,8 @@ function App() {
               (label === 'Overview' && activePage === 'overview') ||
               (label === 'Projects' && activePage === 'projects') ||
               (label === 'My Tasks' && activePage === 'myTasks') ||
-              (label === 'Calendar' && activePage === 'calendar')
+              (label === 'Calendar' && activePage === 'calendar') ||
+              (label === 'Settings' && activePage === 'settings')
 
             return (
               <button
@@ -386,6 +394,8 @@ function App() {
             <MyTasksPage />
           ) : activePage === 'calendar' ? (
             <CalendarPage />
+          ) : activePage === 'settings' ? (
+            <SettingsPage />
           ) : (
             <>
               <section

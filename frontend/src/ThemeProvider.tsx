@@ -1,26 +1,31 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 
-type Theme = 'light' | 'dark'
+export type ThemePreference = 'light' | 'dark' | 'system'
+type Theme = Exclude<ThemePreference, 'system'>
 
 type ThemeContextValue = {
   theme: Theme
+  themePreference: ThemePreference
+  setThemePreference: (preference: ThemePreference) => void
   toggleTheme: () => void
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 const THEME_STORAGE_KEY = 'flowboard-theme'
 
-function getInitialTheme(): Theme {
+function getInitialThemePreference(): ThemePreference {
   const savedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
 
-  if (savedTheme === 'light' || savedTheme === 'dark') {
+  if (
+    savedTheme === 'light' ||
+    savedTheme === 'dark' ||
+    savedTheme === 'system'
+  ) {
     return savedTheme
   }
 
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light'
+  return 'system'
 }
 
 type ThemeProviderProps = {
@@ -28,19 +33,39 @@ type ThemeProviderProps = {
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(getInitialTheme)
+  const [themePreference, setThemePreference] = useState<ThemePreference>(
+    getInitialThemePreference,
+  )
+  const [systemTheme, setSystemTheme] = useState<Theme>(() =>
+    window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light',
+  )
+  const theme = themePreference === 'system' ? systemTheme : themePreference
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
-  }, [theme])
+    window.localStorage.setItem(THEME_STORAGE_KEY, themePreference)
+  }, [theme, themePreference])
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (event: MediaQueryListEvent) => {
+      setSystemTheme(event.matches ? 'dark' : 'light')
+    }
+
+    setSystemTheme(mediaQuery.matches ? 'dark' : 'light')
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => mediaQuery.removeEventListener('change', handleChange)
+  }, [])
 
   function toggleTheme() {
-    setTheme((currentTheme) => (currentTheme === 'light' ? 'dark' : 'light'))
+    setThemePreference(theme === 'light' ? 'dark' : 'light')
   }
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, themePreference, setThemePreference, toggleTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   )
