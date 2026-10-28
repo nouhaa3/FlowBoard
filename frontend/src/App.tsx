@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import MyTasksPage from './MyTasksPage.tsx'
 import ProjectsPage from './ProjectsPage.tsx'
 import { useTheme } from './ThemeProvider.tsx'
 
 type IconName = 'overview' | 'tasks' | 'projects' | 'calendar' | 'settings'
-type ActivePage = 'overview' | 'projects'
+type ActivePage = 'overview' | 'projects' | 'myTasks'
 type MetricIconName = 'projects' | 'tasks' | 'progress' | 'completed'
 type TaskStatus = 'To Do' | 'In Progress' | 'Done'
 
@@ -171,11 +172,18 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activePage, setActivePage] = useState<ActivePage>('overview')
   const nextTheme = theme === 'light' ? 'dark' : 'light'
-  const pageTitle = activePage === 'projects' ? 'Projects' : 'Overview'
+  const pageTitle =
+    activePage === 'projects'
+      ? 'Projects'
+      : activePage === 'myTasks'
+        ? 'My Tasks'
+        : 'Overview'
   const pageSubtitle =
     activePage === 'projects'
       ? 'Organize your work and track progress across projects.'
-      : 'A clear view of your work, all in one place.'
+      : activePage === 'myTasks'
+        ? 'Track priorities, deadlines, and progress across your work.'
+        : 'A clear view of your work, all in one place.'
   const currentDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -202,6 +210,8 @@ function App() {
       setActivePage('overview')
     } else if (label === 'Projects') {
       setActivePage('projects')
+    } else if (label === 'My Tasks') {
+      setActivePage('myTasks')
     }
 
     closeSidebar()
@@ -247,7 +257,9 @@ function App() {
         <nav className="flex flex-col gap-1" aria-label="Workspace">
           {navigationItems.map(({ label, icon }) => {
             const isActive =
-              label.toLocaleLowerCase() === activePage
+              (label === 'Overview' && activePage === 'overview') ||
+              (label === 'Projects' && activePage === 'projects') ||
+              (label === 'My Tasks' && activePage === 'myTasks')
 
             return (
               <button
@@ -362,6 +374,8 @@ function App() {
         >
           {activePage === 'projects' ? (
             <ProjectsPage />
+          ) : activePage === 'myTasks' ? (
+            <MyTasksPage />
           ) : (
             <>
               <section
