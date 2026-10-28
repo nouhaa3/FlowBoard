@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { useTheme } from './ThemeProvider.tsx'
-import type { ThemePreference } from './ThemeProvider.tsx'
+import {
+  DEFAULT_PALETTE,
+  paletteOptions,
+  type ThemePreference,
+} from './ThemeProvider.tsx'
 
 const appearanceOptions: {
   value: ThemePreference
@@ -25,7 +29,13 @@ const appearanceOptions: {
 ]
 
 function SettingsPage() {
-  const { themePreference, setThemePreference } = useTheme()
+  const {
+    themePreference,
+    setThemePreference,
+    palette,
+    setPalette,
+    resetPalette,
+  } = useTheme()
   const [emailNotifications, setEmailNotifications] = useState(true)
   const [taskReminders, setTaskReminders] = useState(false)
   const [weeklySummary, setWeeklySummary] = useState(true)
@@ -60,7 +70,7 @@ function SettingsPage() {
           <div className="flex items-center gap-4">
             <span
               aria-hidden="true"
-              className="flex size-14 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary"
+              className="flex size-14 items-center justify-center rounded-full border border-coral/25 bg-coral-soft text-base font-semibold text-cocoa shadow-sm"
             >
               AM
             </span>
@@ -79,7 +89,7 @@ function SettingsPage() {
                 type="text"
                 value="Alex Morgan"
                 readOnly
-                className="min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground shadow-inner"
               />
             </label>
             <label className="block space-y-2">
@@ -90,7 +100,7 @@ function SettingsPage() {
                 type="email"
                 value="alex.morgan@example.com"
                 readOnly
-                className="min-h-11 w-full rounded-lg border border-border bg-background px-3 text-sm text-foreground"
+                className="min-h-11 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground shadow-inner"
               />
             </label>
           </div>
@@ -100,7 +110,7 @@ function SettingsPage() {
               type="button"
               disabled
               title="Profile updates are not available yet"
-              className="min-h-10 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground opacity-60"
+              className="min-h-11 rounded-xl bg-primary px-4 text-sm font-semibold text-primary-foreground opacity-60 shadow-tactile"
             >
               Save Changes
             </button>
@@ -109,6 +119,73 @@ function SettingsPage() {
             </p>
           </div>
         </div>
+      </section>
+
+      <section
+        aria-labelledby="palette-heading"
+        className="rounded-panel border border-border bg-surface shadow-panel"
+      >
+        <div className="flex flex-col gap-3 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <div>
+            <h3 id="palette-heading" className="text-base font-semibold">
+              Color palette
+            </h3>
+            <p className="mt-1 text-sm text-muted">
+              Pick a little color for your workspace. It updates every page.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={resetPalette}
+            disabled={palette === DEFAULT_PALETTE}
+            className="min-h-10 w-fit rounded-xl border border-border bg-background px-3 text-sm font-semibold text-foreground shadow-sm transition-[background-color,transform,box-shadow] hover:bg-sage-soft active:translate-y-px active:shadow-none disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Reset to default
+          </button>
+        </div>
+        <fieldset className="grid gap-3 p-5 sm:grid-cols-2 sm:p-7 lg:grid-cols-3">
+          <legend className="sr-only">Choose a color palette</legend>
+          {paletteOptions.map((option) => {
+            const isSelected = palette === option.id
+
+            return (
+              <button
+                key={option.id}
+                type="button"
+                aria-pressed={isSelected}
+                onClick={() => setPalette(option.id)}
+                className={`group rounded-2xl border p-4 text-left shadow-sm transition-[background-color,border-color,transform,box-shadow] hover:-translate-y-0.5 hover:shadow-panel active:translate-y-0 active:shadow-sm ${
+                  isSelected
+                    ? 'border-primary bg-sage-soft/60 ring-2 ring-primary/20'
+                    : 'border-border bg-background hover:bg-surface'
+                }`}
+              >
+                <span aria-hidden="true" className="flex gap-1.5">
+                  {option.swatches.map((swatch, index) => (
+                    <span
+                      key={`${option.id}-${index}`}
+                      className="h-7 flex-1 rounded-lg border border-black/5 shadow-inner"
+                      style={{ backgroundColor: swatch }}
+                    />
+                  ))}
+                </span>
+                <span className="mt-3 flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-foreground">
+                    {option.name}
+                  </span>
+                  {isSelected && (
+                    <span className="rounded-full bg-primary px-2 py-0.5 text-[0.65rem] font-semibold text-primary-foreground">
+                      Selected
+                    </span>
+                  )}
+                </span>
+                <span className="mt-1 block text-xs text-muted">
+                  {option.description}
+                </span>
+              </button>
+            )
+          })}
+        </fieldset>
       </section>
 
       <section
@@ -133,7 +210,7 @@ function SettingsPage() {
                 key={value}
                 className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${
                   isSelected
-                    ? 'border-primary bg-primary/5'
+                    ? 'border-primary bg-sage-soft/60 shadow-sm'
                     : 'border-border hover:bg-background'
                 }`}
               >

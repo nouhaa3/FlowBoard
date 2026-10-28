@@ -79,15 +79,15 @@ const calendarTasks: CalendarTask[] = [
 const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 const statusStyles: Record<TaskStatus, string> = {
-  'To Do': 'border border-border bg-background text-muted',
-  'In Progress': 'bg-primary/10 text-primary',
-  Done: 'border border-border bg-surface text-foreground',
+  'To Do': 'border border-butter/25 bg-butter-soft/60 text-cocoa',
+  'In Progress': 'border border-primary/15 bg-sage-soft text-primary',
+  Done: 'border border-coral/20 bg-coral-soft/70 text-cocoa',
 }
 
 const statusMarkerStyles: Record<TaskStatus, string> = {
-  'To Do': 'border border-muted bg-surface',
+  'To Do': 'border border-butter bg-butter-soft',
   'In Progress': 'bg-primary',
-  Done: 'border border-foreground bg-foreground',
+  Done: 'bg-coral',
 }
 
 function getDateKey(date: Date) {
@@ -203,16 +203,16 @@ function CalendarPage() {
           <button
             type="button"
             onClick={returnToToday}
-            className="min-h-10 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-background"
+            className="min-h-11 rounded-xl border border-border bg-surface px-4 text-sm font-semibold text-foreground shadow-sm transition-[background-color,transform,box-shadow] hover:bg-sage-soft active:translate-y-px active:shadow-none"
           >
             Today
           </button>
-          <div className="flex items-center rounded-lg border border-border bg-surface">
+          <div className="flex items-center rounded-xl border border-border bg-surface shadow-sm">
             <button
               type="button"
               aria-label="Previous month"
               onClick={() => changeMonth(-1)}
-              className="flex size-10 items-center justify-center rounded-l-lg text-muted transition-colors hover:bg-background hover:text-foreground"
+              className="flex size-11 items-center justify-center rounded-l-xl text-muted transition-colors hover:bg-sage-soft hover:text-foreground"
             >
               <svg
                 aria-hidden="true"
@@ -232,7 +232,7 @@ function CalendarPage() {
               type="button"
               aria-label="Next month"
               onClick={() => changeMonth(1)}
-              className="flex size-10 items-center justify-center rounded-r-lg text-muted transition-colors hover:bg-background hover:text-foreground"
+              className="flex size-11 items-center justify-center rounded-r-xl text-muted transition-colors hover:bg-sage-soft hover:text-foreground"
             >
               <svg
                 aria-hidden="true"
@@ -317,10 +317,10 @@ function CalendarPage() {
                       key={task.id}
                       className={`flex min-w-0 items-center gap-1 rounded px-1 py-0.5 text-[0.55rem] leading-tight sm:gap-1.5 sm:px-1.5 sm:text-[0.68rem] ${
                         task.status === 'In Progress'
-                          ? 'bg-primary/10 text-primary'
+                          ? 'bg-sage-soft text-primary'
                           : task.status === 'Done'
-                            ? 'border border-border bg-background text-muted'
-                            : 'bg-background text-muted'
+                              ? 'border border-coral/20 bg-coral-soft/70 text-cocoa'
+                              : 'border border-butter/20 bg-butter-soft/55 text-cocoa'
                       }`}
                     >
                       <span
@@ -389,7 +389,7 @@ function CalendarPage() {
                   </div>
                 </div>
                 <span
-                  className={`ml-5 w-fit rounded-full px-2.5 py-1 text-xs font-medium sm:ml-0 ${statusStyles[task.status]}`}
+                  className={`ml-5 w-fit rounded-full px-3 py-1.5 text-xs font-semibold shadow-sm sm:ml-0 ${statusStyles[task.status]}`}
                 >
                   {task.status}
                 </span>

@@ -91,14 +91,14 @@ const priorityFilters: PriorityFilter[] = ['All', 'Low', 'Medium', 'High']
 
 const statusStyles: Record<TaskStatus, string> = {
   'To Do': 'border border-border bg-background text-muted',
-  'In Progress': 'bg-primary/10 text-primary',
-  Done: 'border border-border bg-surface text-foreground',
+  'In Progress': 'border border-primary/15 bg-sage-soft text-primary',
+  Done: 'border border-coral/20 bg-coral-soft/70 text-cocoa',
 }
 
 const priorityStyles: Record<TaskPriority, string> = {
   Low: 'border border-border bg-background text-muted',
-  Medium: 'border border-border bg-surface text-foreground',
-  High: 'bg-primary/10 text-primary',
+  Medium: 'border border-butter/25 bg-butter-soft/60 text-cocoa',
+  High: 'border border-primary/15 bg-sage-soft text-primary',
 }
 
 function MyTasksPage() {
@@ -177,17 +177,17 @@ function MyTasksPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search tasks or projects"
-              className="min-h-11 w-full rounded-lg border border-border bg-surface pl-10 pr-4 text-sm text-foreground placeholder:text-muted"
+              className="min-h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-4 text-sm text-foreground shadow-inner placeholder:text-muted"
             />
           </label>
 
-          <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted">
+          <label className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-muted shadow-sm">
             <span className="shrink-0">Status</span>
             <span className="sr-only">Filter tasks by status</span>
             <select
               value={statusFilter}
               onChange={(event) => updateStatusFilter(event.currentTarget.value)}
-              className="min-w-0 flex-1 cursor-pointer bg-transparent py-2 font-medium text-foreground outline-none"
+              className="min-w-0 flex-1 cursor-pointer bg-transparent py-2 font-semibold text-foreground outline-none"
             >
               {statusFilters.map((filter) => (
                 <option key={filter} value={filter}>
@@ -197,7 +197,7 @@ function MyTasksPage() {
             </select>
           </label>
 
-          <label className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted">
+          <label className="flex min-h-12 min-w-0 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-muted shadow-sm">
             <span className="shrink-0">Priority</span>
             <span className="sr-only">Filter tasks by priority</span>
             <select
@@ -205,7 +205,7 @@ function MyTasksPage() {
               onChange={(event) =>
                 updatePriorityFilter(event.currentTarget.value)
               }
-              className="min-w-0 flex-1 cursor-pointer bg-transparent py-2 font-medium text-foreground outline-none"
+              className="min-w-0 flex-1 cursor-pointer bg-transparent py-2 font-semibold text-foreground outline-none"
             >
               {priorityFilters.map((filter) => (
                 <option key={filter} value={filter}>
@@ -226,7 +226,7 @@ function MyTasksPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-md text-sm font-medium text-primary underline-offset-4 hover:underline"
+              className="rounded-lg px-2 py-1 text-sm font-semibold text-primary underline-offset-4 hover:bg-sage-soft hover:underline"
             >
               Clear filters
             </button>
@@ -238,14 +238,14 @@ function MyTasksPage() {
             {filteredTasks.map((task, index) => (
               <li
                 key={task.title}
-                className={`grid min-w-0 gap-3 p-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4 sm:px-5 ${
+                className={`grid min-w-0 gap-3 p-4 transition-colors hover:bg-background/70 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4 sm:px-5 ${
                   index > 0 ? 'border-t border-border' : ''
                 }`}
               >
                 <div className="flex min-w-0 items-start gap-3">
                   <span
                     aria-hidden="true"
-                    className="mt-1.5 size-2 shrink-0 rounded-full bg-primary/70"
+                    className="mt-1.5 size-2 shrink-0 rounded-full bg-primary shadow-[0_0_0_3px_var(--sage-soft)]"
                   />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-foreground">
@@ -259,12 +259,12 @@ function MyTasksPage() {
 
                 <div className="flex flex-wrap items-center gap-2 sm:contents">
                   <span
-                    className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[task.status]}`}
+                    className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ${statusStyles[task.status]}`}
                   >
                     {task.status}
                   </span>
                   <span
-                    className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${priorityStyles[task.priority]}`}
+                    className={`w-fit rounded-full px-3 py-1.5 text-xs font-semibold ${priorityStyles[task.priority]}`}
                   >
                     {task.priority} priority
                   </span>

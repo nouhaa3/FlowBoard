@@ -64,8 +64,8 @@ const filters: StatusFilter[] = [
 ]
 
 const statusStyles: Record<ProjectStatus, string> = {
-  'In Progress': 'bg-primary/10 text-primary',
-  Completed: 'border border-primary/30 bg-primary text-primary-foreground',
+  'In Progress': 'border border-primary/15 bg-sage-soft text-primary',
+  Completed: 'border border-primary/20 bg-primary text-primary-foreground shadow-sm',
   Planned: 'border border-border bg-background text-muted',
 }
 
@@ -131,7 +131,7 @@ function ProjectsPage() {
           type="button"
           disabled
           title="Project creation is not available yet"
-          className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground opacity-60 sm:w-auto"
+          className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground opacity-60 shadow-tactile sm:w-auto"
         >
           <span aria-hidden="true" className="text-lg leading-none">
             +
@@ -162,11 +162,11 @@ function ProjectsPage() {
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search projects"
-              className="min-h-11 w-full rounded-lg border border-border bg-surface pl-10 pr-4 text-sm text-foreground placeholder:text-muted"
+              className="min-h-12 w-full rounded-xl border border-border bg-surface pl-10 pr-4 text-sm text-foreground shadow-inner placeholder:text-muted"
             />
           </label>
 
-          <label className="flex min-h-11 items-center gap-2 rounded-lg border border-border bg-surface px-3 text-sm text-muted sm:w-auto">
+          <label className="flex min-h-12 items-center gap-2 rounded-xl border border-border bg-surface px-3 text-sm text-muted shadow-sm sm:w-auto">
             <span className="shrink-0">Status</span>
             <span className="sr-only">Filter projects by status</span>
             <select
@@ -177,7 +177,7 @@ function ProjectsPage() {
                 )
                 if (selectedFilter) setStatusFilter(selectedFilter)
               }}
-              className="min-w-0 flex-1 cursor-pointer bg-transparent py-2 font-medium text-foreground outline-none sm:flex-none"
+              className="min-w-0 flex-1 cursor-pointer bg-transparent py-2 font-semibold text-foreground outline-none sm:flex-none"
             >
               {filters.map((filter) => (
                 <option key={filter} value={filter}>
@@ -198,7 +198,7 @@ function ProjectsPage() {
             <button
               type="button"
               onClick={clearFilters}
-              className="rounded-md text-sm font-medium text-primary underline-offset-4 hover:underline"
+            className="rounded-lg px-2 py-1 text-sm font-semibold text-primary underline-offset-4 hover:bg-sage-soft hover:underline"
             >
               Clear filters
             </button>
@@ -215,15 +215,15 @@ function ProjectsPage() {
               return (
                 <li
                   key={project.name}
-                  className="min-w-0 rounded-panel border border-border bg-surface p-5 shadow-panel sm:p-6"
+                  className="min-w-0 rounded-panel border border-border bg-surface p-5 shadow-panel transition-[transform,box-shadow] hover:-translate-y-1 hover:shadow-tactile sm:p-6"
                 >
                   <article aria-labelledby={`project-${project.name}`}>
                     <div className="flex items-start justify-between gap-4">
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                      <span className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-primary/10 bg-sage-soft text-primary shadow-sm">
                         <ProjectMark />
                       </span>
                       <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[project.status]}`}
+                        className={`rounded-full px-3 py-1.5 text-xs font-semibold ${statusStyles[project.status]}`}
                       >
                         {project.status}
                       </span>
@@ -253,7 +253,7 @@ function ProjectsPage() {
                         aria-valuemax={100}
                         aria-valuenow={progress}
                         aria-valuetext={`${progress}% complete`}
-                        className="h-2 overflow-hidden rounded-full bg-background"
+                        className="h-2 overflow-hidden rounded-full bg-background shadow-inner"
                       >
                         <div
                           className="h-full rounded-full bg-primary transition-[width]"
