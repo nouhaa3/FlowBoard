@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
+import ProjectsPage from './ProjectsPage.tsx'
 import { useTheme } from './ThemeProvider.tsx'
 
 type IconName = 'overview' | 'tasks' | 'projects' | 'calendar' | 'settings'
+type ActivePage = 'overview' | 'projects'
 type MetricIconName = 'projects' | 'tasks' | 'progress' | 'completed'
 type TaskStatus = 'To Do' | 'In Progress' | 'Done'
 
@@ -167,7 +169,13 @@ function MetricIcon({ name }: { name: MetricIconName }) {
 function App() {
   const { theme, toggleTheme } = useTheme()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [activePage, setActivePage] = useState<ActivePage>('overview')
   const nextTheme = theme === 'light' ? 'dark' : 'light'
+  const pageTitle = activePage === 'projects' ? 'Projects' : 'Overview'
+  const pageSubtitle =
+    activePage === 'projects'
+      ? 'Organize your work and track progress across projects.'
+      : 'A clear view of your work, all in one place.'
   const currentDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
     month: 'long',
@@ -187,6 +195,16 @@ function App() {
 
   function closeSidebar() {
     setIsSidebarOpen(false)
+  }
+
+  function navigateTo(label: string) {
+    if (label === 'Overview') {
+      setActivePage('overview')
+    } else if (label === 'Projects') {
+      setActivePage('projects')
+    }
+
+    closeSidebar()
   }
 
   return (
@@ -212,7 +230,10 @@ function App() {
         <a
           href="#overview"
           className="mb-10 flex items-center gap-3 rounded-lg px-2 py-1 text-foreground"
-          onClick={closeSidebar}
+          onClick={(event) => {
+            event.preventDefault()
+            navigateTo('Overview')
+          }}
         >
           <span className="flex size-9 items-center justify-center rounded-xl bg-primary text-sm font-bold text-primary-foreground">
             F
@@ -225,14 +246,15 @@ function App() {
         </p>
         <nav className="flex flex-col gap-1" aria-label="Workspace">
           {navigationItems.map(({ label, icon }) => {
-            const isActive = label === 'Overview'
+            const isActive =
+              label.toLocaleLowerCase() === activePage
 
             return (
               <button
                 key={label}
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
-                onClick={closeSidebar}
+                onClick={() => navigateTo(label)}
                 className={`flex min-h-11 items-center gap-3 rounded-lg px-3 text-sm font-medium transition-colors ${
                   isActive
                     ? 'bg-primary/10 text-primary'
@@ -296,10 +318,10 @@ function App() {
             </button>
             <div className="min-w-0">
               <h1 className="truncate text-base font-semibold tracking-tight sm:text-lg">
-                Overview
+                {pageTitle}
               </h1>
               <p className="hidden truncate text-sm text-muted sm:block">
-                A clear view of your work, all in one place.
+                {pageSubtitle}
               </p>
             </div>
           </div>
@@ -338,101 +360,113 @@ function App() {
           id="overview"
           className="mx-auto w-full max-w-7xl flex-1 px-4 py-7 sm:px-7 sm:py-9 lg:px-10 lg:py-10"
         >
-          <section
-            aria-labelledby="welcome-heading"
-            className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
-          >
-            <div>
-              <p className="text-sm font-medium text-primary">Your workspace</p>
-              <h2
-                id="welcome-heading"
-                className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
+          {activePage === 'projects' ? (
+            <ProjectsPage />
+          ) : (
+            <>
+              <section
+                aria-labelledby="welcome-heading"
+                className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"
               >
-                Good afternoon, Nouha
-              </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-muted sm:text-base sm:leading-7">
-                Here&apos;s what&apos;s happening with your projects today.
-              </p>
-            </div>
-            <p className="text-sm font-medium text-muted sm:pb-1">{currentDate}</p>
-          </section>
-
-          <section aria-label="Workspace summary" className="mt-8">
-            <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {summaryMetrics.map(({ label, value, icon }) => (
-                <div
-                  key={label}
-                  className="rounded-panel border border-border bg-surface p-5 shadow-panel sm:p-6"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <dt className="text-sm font-medium text-muted">{label}</dt>
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                      <MetricIcon name={icon} />
-                    </span>
-                  </div>
-                  <dd className="mt-5 text-3xl font-semibold tracking-tight text-foreground">
-                    {value}
-                  </dd>
-                  <p className="mt-1 text-xs text-muted">Mock data</p>
-                </div>
-              ))}
-            </dl>
-          </section>
-
-          <section
-            aria-labelledby="recent-tasks-heading"
-            className="mt-9 overflow-hidden rounded-panel border border-border bg-surface shadow-panel"
-          >
-            <div className="flex flex-col gap-1 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-              <div>
-                <h3
-                  id="recent-tasks-heading"
-                  className="text-base font-semibold tracking-tight"
-                >
-                  Recent tasks
-                </h3>
-                <p className="mt-1 text-sm text-muted">
-                  A quick look at what your team is working on.
-                </p>
-              </div>
-              <span className="mt-2 w-fit rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted sm:mt-0">
-                {recentTasks.length} tasks · Mock data
-              </span>
-            </div>
-
-            <ul className="divide-y divide-border">
-              {recentTasks.map((task) => (
-                <li
-                  key={task.title}
-                  className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(7rem,0.8fr)_auto] sm:items-center sm:gap-4 sm:px-6"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-foreground">
-                      {task.title}
-                    </p>
-                    <p className="mt-1 truncate text-xs text-muted sm:hidden">
-                      {task.project}
-                    </p>
-                  </div>
-                  <p className="hidden truncate text-sm text-muted sm:block">
-                    {task.project}
+                <div>
+                  <p className="text-sm font-medium text-primary">
+                    Your workspace
                   </p>
-                  <time
-                    dateTime={task.dueDate}
-                    className="text-xs text-muted sm:text-sm"
+                  <h2
+                    id="welcome-heading"
+                    className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl"
                   >
-                    <span className="sm:hidden">Due </span>
-                    {task.dueDateLabel}
-                  </time>
-                  <span
-                    className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[task.status]}`}
-                  >
-                    {task.status}
+                    Good afternoon, Nouha
+                  </h2>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-muted sm:text-base sm:leading-7">
+                    Here&apos;s what&apos;s happening with your projects today.
+                  </p>
+                </div>
+                <p className="text-sm font-medium text-muted sm:pb-1">
+                  {currentDate}
+                </p>
+              </section>
+
+              <section aria-label="Workspace summary" className="mt-8">
+                <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  {summaryMetrics.map(({ label, value, icon }) => (
+                    <div
+                      key={label}
+                      className="rounded-panel border border-border bg-surface p-5 shadow-panel sm:p-6"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <dt className="text-sm font-medium text-muted">
+                          {label}
+                        </dt>
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                          <MetricIcon name={icon} />
+                        </span>
+                      </div>
+                      <dd className="mt-5 text-3xl font-semibold tracking-tight text-foreground">
+                        {value}
+                      </dd>
+                      <p className="mt-1 text-xs text-muted">Mock data</p>
+                    </div>
+                  ))}
+                </dl>
+              </section>
+
+              <section
+                aria-labelledby="recent-tasks-heading"
+                className="mt-9 overflow-hidden rounded-panel border border-border bg-surface shadow-panel"
+              >
+                <div className="flex flex-col gap-1 border-b border-border px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+                  <div>
+                    <h3
+                      id="recent-tasks-heading"
+                      className="text-base font-semibold tracking-tight"
+                    >
+                      Recent tasks
+                    </h3>
+                    <p className="mt-1 text-sm text-muted">
+                      A quick look at what your team is working on.
+                    </p>
+                  </div>
+                  <span className="mt-2 w-fit rounded-full border border-border px-2.5 py-1 text-xs font-medium text-muted sm:mt-0">
+                    {recentTasks.length} tasks · Mock data
                   </span>
-                </li>
-              ))}
-            </ul>
-          </section>
+                </div>
+
+                <ul className="divide-y divide-border">
+                  {recentTasks.map((task) => (
+                    <li
+                      key={task.title}
+                      className="grid gap-3 px-5 py-4 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(7rem,0.8fr)_auto] sm:items-center sm:gap-4 sm:px-6"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-foreground">
+                          {task.title}
+                        </p>
+                        <p className="mt-1 truncate text-xs text-muted sm:hidden">
+                          {task.project}
+                        </p>
+                      </div>
+                      <p className="hidden truncate text-sm text-muted sm:block">
+                        {task.project}
+                      </p>
+                      <time
+                        dateTime={task.dueDate}
+                        className="text-xs text-muted sm:text-sm"
+                      >
+                        <span className="sm:hidden">Due </span>
+                        {task.dueDateLabel}
+                      </time>
+                      <span
+                        className={`w-fit rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[task.status]}`}
+                      >
+                        {task.status}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </>
+          )}
         </main>
       </div>
     </div>
