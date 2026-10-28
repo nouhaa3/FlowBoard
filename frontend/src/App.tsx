@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
+import CalendarPage from './CalendarPage.tsx'
 import MyTasksPage from './MyTasksPage.tsx'
 import ProjectsPage from './ProjectsPage.tsx'
 import { useTheme } from './ThemeProvider.tsx'
 
 type IconName = 'overview' | 'tasks' | 'projects' | 'calendar' | 'settings'
-type ActivePage = 'overview' | 'projects' | 'myTasks'
+type ActivePage = 'overview' | 'projects' | 'myTasks' | 'calendar'
 type MetricIconName = 'projects' | 'tasks' | 'progress' | 'completed'
 type TaskStatus = 'To Do' | 'In Progress' | 'Done'
 
@@ -177,12 +178,16 @@ function App() {
       ? 'Projects'
       : activePage === 'myTasks'
         ? 'My Tasks'
+        : activePage === 'calendar'
+          ? 'Calendar'
         : 'Overview'
   const pageSubtitle =
     activePage === 'projects'
       ? 'Organize your work and track progress across projects.'
       : activePage === 'myTasks'
         ? 'Track priorities, deadlines, and progress across your work.'
+        : activePage === 'calendar'
+          ? 'See what’s due and plan your month.'
         : 'A clear view of your work, all in one place.'
   const currentDate = new Intl.DateTimeFormat('en-US', {
     weekday: 'long',
@@ -212,6 +217,8 @@ function App() {
       setActivePage('projects')
     } else if (label === 'My Tasks') {
       setActivePage('myTasks')
+    } else if (label === 'Calendar') {
+      setActivePage('calendar')
     }
 
     closeSidebar()
@@ -259,7 +266,8 @@ function App() {
             const isActive =
               (label === 'Overview' && activePage === 'overview') ||
               (label === 'Projects' && activePage === 'projects') ||
-              (label === 'My Tasks' && activePage === 'myTasks')
+              (label === 'My Tasks' && activePage === 'myTasks') ||
+              (label === 'Calendar' && activePage === 'calendar')
 
             return (
               <button
@@ -376,6 +384,8 @@ function App() {
             <ProjectsPage />
           ) : activePage === 'myTasks' ? (
             <MyTasksPage />
+          ) : activePage === 'calendar' ? (
+            <CalendarPage />
           ) : (
             <>
               <section
