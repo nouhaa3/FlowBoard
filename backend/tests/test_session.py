@@ -11,18 +11,21 @@ from app.db import session as database_session
 def test_session_factory_uses_configured_database(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setenv("APP_ENVIRONMENT", "development")
     monkeypatch.setenv("DATABASE_URL", "sqlite+pysqlite:///:memory:")
     get_settings.cache_clear()
     database_session.get_engine.cache_clear()
     database_session.get_session_factory.cache_clear()
-    engine = database_session.get_engine()
+    engine = None
 
     try:
+        engine = database_session.get_engine()
         factory = database_session.get_session_factory()
         with factory() as db:
             assert db.scalar(text("SELECT 1")) == 1
     finally:
-        engine.dispose()
+        if engine is not None:
+            engine.dispose()
         database_session.get_session_factory.cache_clear()
         database_session.get_engine.cache_clear()
         get_settings.cache_clear()

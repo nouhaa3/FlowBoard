@@ -55,7 +55,12 @@ def test_initial_migration_status_length_matches_task_model() -> None:
 
 
 def test_all_models_are_registered_with_base_metadata() -> None:
-    assert set(Base.metadata.tables) == {"users", "projects", "tasks"}
+    assert set(Base.metadata.tables) == {
+        "users",
+        "projects",
+        "tasks",
+        "user_sessions",
+    }
 
 
 def test_user_columns_and_email_constraints() -> None:

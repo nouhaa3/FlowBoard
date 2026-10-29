@@ -34,6 +34,13 @@ password placeholder with a local-only password using URL-safe characters
 Copy-Item .\backend\.env.example .\backend\.env
 ```
 
+The authentication configuration in this file defaults to development mode:
+secure cookies are disabled for localhost HTTP, and the Vite localhost origins
+are explicitly allowed. Production must set `APP_ENVIRONMENT=production`,
+`SESSION_COOKIE_SECURE=true`, and HTTPS-only `ALLOWED_FRONTEND_ORIGINS`.
+Before adding cookie-authenticated state-changing routes, implement CSRF token
+validation and exact `Origin` allow-list checks; `SameSite` alone is not enough.
+
 Start PostgreSQL and the API:
 
 ```powershell
