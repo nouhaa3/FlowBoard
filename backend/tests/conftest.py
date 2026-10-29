@@ -7,6 +7,8 @@ from sqlalchemy.engine import URL
 from app.core.config import get_settings
 from database_safety import validate_test_database_url
 
+os.environ.setdefault("APP_ENVIRONMENT", "development")
+
 
 @pytest.fixture
 def test_database_url() -> Generator[URL, None, None]:

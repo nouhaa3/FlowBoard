@@ -38,8 +38,9 @@ The authentication configuration in this file defaults to development mode:
 secure cookies are disabled for localhost HTTP, and the Vite localhost origins
 are explicitly allowed. Production must set `APP_ENVIRONMENT=production`,
 `SESSION_COOKIE_SECURE=true`, and HTTPS-only `ALLOWED_FRONTEND_ORIGINS`.
-Before adding cookie-authenticated state-changing routes, implement CSRF token
-validation and exact `Origin` allow-list checks; `SameSite` alone is not enough.
+Registration and login already enforce exact `Origin` allow-list checks. A
+reusable CSRF dependency is also available for unsafe cookie-authenticated
+routes; `SameSite` alone is not enough.
 
 Start PostgreSQL and the API:
 
@@ -54,8 +55,8 @@ container stops and recreation.
 Check liveness and database readiness:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:8000/health
-Invoke-RestMethod http://127.0.0.1:8000/health/ready
+Invoke-RestMethod http://127.0.0.1:8001/health
+Invoke-RestMethod http://127.0.0.1:8001/health/ready
 ```
 
 `/health` is a process liveness check and does not access the database.
@@ -68,8 +69,8 @@ Run migrations explicitly when migration revisions exist:
 docker compose --env-file .\backend\.env run --rm api alembic upgrade head
 ```
 
-Migrations are not run automatically when the API starts. This initial setup
-does not yet define domain models or migration revisions.
+Migrations are not run automatically when the API starts. Apply existing
+revisions explicitly with the command above.
 
 Stop the containers without deleting the database volume:
 
@@ -109,3 +110,20 @@ uvicorn app.main:app --reload
 
 The FastAPI interactive API documentation is at
 `http://127.0.0.1:8000/docs`.
+
+### Browser authentication security
+
+The versioned authentication endpoints are `POST /api/v1/auth/register` and
+`POST /api/v1/auth/login`. They require an exact `Origin` match from
+`ALLOWED_FRONTEND_ORIGINS`. The session token is set only in an HttpOnly cookie;
+a separate readable CSRF cookie is issued for the double-submit CSRF mechanism.
+
+Every future unsafe endpoint authenticated by the session cookie must explicitly
+include `Depends(require_csrf)` and the session-authentication dependency once
+that dependency is implemented. `require_csrf` validates the exact configured
+Origin and compares the `X-CSRF-Token` request header with the `flowboard_csrf` cookie.
+Browser requests must send credentials and provide that CSRF value in the
+header. Credentialed CORS is restricted to the configured origins. CSRF
+validation is not automatically applied to routes that do not explicitly
+depend on it. The session-authentication dependency, authenticated routes, and
+frontend integration are not part of this step.
