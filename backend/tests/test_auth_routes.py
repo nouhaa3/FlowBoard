@@ -17,6 +17,10 @@ from app.db.session import get_db
 from app.main import create_app
 from app.models import User, UserSession
 from app.security.csrf import CSRF_COOKIE_NAME, require_csrf
+from app.security.session_auth import (
+    AuthenticatedSessionContext,
+    get_authenticated_session,
+)
 from app.services.auth import hash_session_token
 
 FRONTEND_ORIGIN = "http://localhost:5173"
@@ -324,6 +328,64 @@ def test_login_sets_session_cookie_and_returns_public_user(
         sessions = list(db.scalars(select(UserSession)))
         assert len(sessions) == 2
         assert hash_session_token(token) in {item.token_hash for item in sessions}
+
+
+def test_me_returns_public_user_without_mutating_session(
+    client_and_engine: tuple[TestClient, Engine],
+) -> None:
+    client, engine = client_and_engine
+    registration = client.post(
+        "/api/v1/auth/register",
+        headers={"Origin": FRONTEND_ORIGIN},
+        json={
+            "email": "profile@example.com",
+            "password": "a sufficiently long password",
+            "display_name": "Profile User",
+        },
+    )
+    assert registration.status_code == 201
+
+    with Session(engine) as db:
+        before = db.scalar(select(UserSession))
+        assert before is not None
+        before_state = (before.created_at, before.expires_at, before.revoked_at)
+        user = db.get(User, before.user_id)
+        assert user is not None
+        context = AuthenticatedSessionContext(user=user, session_id=before.id)
+
+    client.app.dependency_overrides[get_authenticated_session] = lambda: context
+    try:
+        response = client.get("/api/v1/auth/me")
+    finally:
+        client.app.dependency_overrides.pop(get_authenticated_session)
+
+    assert response.status_code == 200
+    assert set(response.json()) == {"id", "email", "display_name", "created_at"}
+    assert response.json()["id"] == registration.json()["id"]
+    assert response.json()["email"] == "profile@example.com"
+    assert "password_hash" not in response.text
+    assert "token_hash" not in response.text
+    assert "flowboard_session" not in response.text
+
+    with Session(engine) as db:
+        after = db.scalar(select(UserSession))
+        assert after is not None
+        assert (after.created_at, after.expires_at, after.revoked_at) == before_state
+
+
+@pytest.mark.parametrize("token", [None, "unknown-session-token"])
+def test_me_rejects_missing_or_invalid_session(
+    client_and_engine: tuple[TestClient, Engine],
+    token: str | None,
+) -> None:
+    client, _ = client_and_engine
+    if token is not None:
+        client.cookies.set("flowboard_session", token)
+
+    response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+    assert response.json() == {"detail": "Invalid or expired session."}
 
 
 @pytest.mark.parametrize("origin", [None, "https://not-allowed.example"])

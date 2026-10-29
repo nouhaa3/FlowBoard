@@ -13,6 +13,10 @@ from app.security.csrf import (
     require_allowed_origin,
     set_auth_cookies,
 )
+from app.security.session_auth import (
+    AuthenticatedSessionContext,
+    get_authenticated_session,
+)
 from app.services.auth import (
     generate_session_token,
     hash_password,
@@ -121,3 +125,10 @@ def login(
 
     set_auth_cookies(response, token, settings)
     return user
+
+
+@router.get("/me", response_model=PublicUserResponse)
+def get_current_user(
+    context: AuthenticatedSessionContext = Depends(get_authenticated_session),
+) -> User:
+    return context.user
