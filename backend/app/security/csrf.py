@@ -71,3 +71,21 @@ def set_auth_cookies(response: Response, session_token: str, settings: Settings)
         httponly=False,
         **cookie_options,
     )
+
+
+def clear_auth_cookies(response: Response, settings: Settings) -> None:
+    cookie_options = {
+        "path": "/",
+        "secure": settings.secure_session_cookie,
+        "samesite": "lax",
+    }
+    response.delete_cookie(
+        key=SESSION_COOKIE_NAME,
+        httponly=True,
+        **cookie_options,
+    )
+    response.delete_cookie(
+        key=CSRF_COOKIE_NAME,
+        httponly=False,
+        **cookie_options,
+    )

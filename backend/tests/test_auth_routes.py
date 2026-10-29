@@ -5,7 +5,7 @@ import pytest
 from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
@@ -16,7 +16,11 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import create_app
 from app.models import User, UserSession
-from app.security.csrf import CSRF_COOKIE_NAME, require_csrf
+from app.security.csrf import (
+    CSRF_COOKIE_NAME,
+    SESSION_COOKIE_NAME,
+    require_csrf,
+)
 from app.security.session_auth import (
     AuthenticatedSessionContext,
     get_authenticated_session,
@@ -386,6 +390,181 @@ def test_me_rejects_missing_or_invalid_session(
 
     assert response.status_code == 401
     assert response.json() == {"detail": "Invalid or expired session."}
+
+
+def test_logout_revokes_only_current_session_and_clears_cookies(
+    client_and_engine: tuple[TestClient, Engine],
+) -> None:
+    client, engine = client_and_engine
+    registration = client.post(
+        "/api/v1/auth/register",
+        headers={"Origin": FRONTEND_ORIGIN},
+        json={
+            "email": "logout@example.com",
+            "password": "a sufficiently long password",
+            "display_name": "Logout User",
+        },
+    )
+    assert registration.status_code == 201
+
+    with Session(engine) as db:
+        user = db.scalar(select(User).where(User.email == "logout@example.com"))
+        assert user is not None
+        current_session = db.scalar(
+            select(UserSession).where(UserSession.user_id == user.id)
+        )
+        assert current_session is not None
+        unrelated_session = UserSession(
+            user_id=user.id,
+            token_hash=hash_session_token("unrelated-session-token"),
+            expires_at=current_session.expires_at.replace(tzinfo=None),
+        )
+        db.add(unrelated_session)
+        db.commit()
+        context = AuthenticatedSessionContext(
+            user=user,
+            session_id=current_session.id,
+        )
+        current_session_id = current_session.id
+        unrelated_session_id = unrelated_session.id
+
+    client.app.dependency_overrides[get_authenticated_session] = lambda: context
+    try:
+        response = client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Origin": FRONTEND_ORIGIN,
+                "X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME),
+            },
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_authenticated_session)
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+    deleted_cookies = response.headers.get_list("set-cookie")
+    assert any(
+        f"{SESSION_COOKIE_NAME}=" in cookie
+        and "Max-Age=0" in cookie
+        and "Path=/" in cookie
+        and "HttpOnly" in cookie
+        and "SameSite=lax" in cookie
+        for cookie in deleted_cookies
+    )
+    assert any(
+        f"{CSRF_COOKIE_NAME}=" in cookie
+        and "Max-Age=0" in cookie
+        and "Path=/" in cookie
+        and "HttpOnly" not in cookie
+        and "SameSite=lax" in cookie
+        for cookie in deleted_cookies
+    )
+
+    with Session(engine) as db:
+        revoked_session = db.get(UserSession, current_session_id)
+        remaining_session = db.get(UserSession, unrelated_session_id)
+        assert revoked_session is not None
+        assert revoked_session.revoked_at is not None
+        assert remaining_session is not None
+        assert remaining_session.revoked_at is None
+
+
+def test_logout_commit_failure_rolls_back_without_success(
+    client_and_engine: tuple[TestClient, Engine],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, engine = client_and_engine
+    registration = client.post(
+        "/api/v1/auth/register",
+        headers={"Origin": FRONTEND_ORIGIN},
+        json={
+            "email": "logout-failure@example.com",
+            "password": "a sufficiently long password",
+            "display_name": "Logout Failure User",
+        },
+    )
+    assert registration.status_code == 201
+
+    with Session(engine) as db:
+        user = db.scalar(
+            select(User).where(User.email == "logout-failure@example.com")
+        )
+        assert user is not None
+        current_session = db.scalar(
+            select(UserSession).where(UserSession.user_id == user.id)
+        )
+        assert current_session is not None
+        context = AuthenticatedSessionContext(
+            user=user,
+            session_id=current_session.id,
+        )
+        current_session_id = current_session.id
+
+    rollback_called = False
+    original_rollback = Session.rollback
+
+    def fail_commit(_session: Session) -> None:
+        raise SQLAlchemyError("sensitive database failure details")
+
+    def track_rollback(session: Session) -> None:
+        nonlocal rollback_called
+        rollback_called = True
+        original_rollback(session)
+
+    monkeypatch.setattr(Session, "commit", fail_commit)
+    monkeypatch.setattr(Session, "rollback", track_rollback)
+    client.app.dependency_overrides[get_authenticated_session] = lambda: context
+    try:
+        response = client.post(
+            "/api/v1/auth/logout",
+            headers={
+                "Origin": FRONTEND_ORIGIN,
+                "X-CSRF-Token": client.cookies.get(CSRF_COOKIE_NAME),
+            },
+        )
+    finally:
+        client.app.dependency_overrides.pop(get_authenticated_session)
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "Authentication service unavailable."}
+    assert "sensitive database failure details" not in response.text
+    assert "set-cookie" not in response.headers
+    assert rollback_called
+
+    with Session(engine) as db:
+        persisted_session = db.get(UserSession, current_session_id)
+        assert persisted_session is not None
+        assert persisted_session.revoked_at is None
+
+
+@pytest.mark.parametrize(
+    "cookie_token,csrf_cookie,csrf_header,expected_status",
+    [
+        (None, "valid-csrf-token", "valid-csrf-token", 401),
+        ("invalid-session-token", "valid-csrf-token", "valid-csrf-token", 401),
+        ("session-token", "valid-csrf-token", None, 403),
+        ("session-token", "valid-csrf-token", "wrong-csrf-token", 403),
+    ],
+)
+def test_logout_rejects_invalid_authentication_or_csrf(
+    client_and_engine: tuple[TestClient, Engine],
+    cookie_token: str | None,
+    csrf_cookie: str,
+    csrf_header: str | None,
+    expected_status: int,
+) -> None:
+    client, _ = client_and_engine
+    if cookie_token is not None:
+        client.cookies.set(SESSION_COOKIE_NAME, cookie_token)
+    client.cookies.set(CSRF_COOKIE_NAME, csrf_cookie)
+    headers = {"Origin": FRONTEND_ORIGIN}
+    if csrf_header is not None:
+        headers["X-CSRF-Token"] = csrf_header
+
+    response = client.post("/api/v1/auth/logout", headers=headers)
+
+    assert response.status_code == expected_status
+    assert "set-cookie" not in response.headers
 
 
 @pytest.mark.parametrize("origin", [None, "https://not-allowed.example"])

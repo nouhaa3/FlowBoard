@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -10,6 +10,8 @@ from app.models.user import User
 from app.models.user_session import UserSession
 from app.schemas.auth import LoginRequest, PublicUserResponse, RegistrationRequest
 from app.security.csrf import (
+    clear_auth_cookies,
+    require_csrf,
     require_allowed_origin,
     set_auth_cookies,
 )
@@ -21,6 +23,7 @@ from app.services.auth import (
     generate_session_token,
     hash_password,
     hash_session_token,
+    revoke_session,
     session_expiry,
     verify_password,
 )
@@ -132,3 +135,32 @@ def get_current_user(
     context: AuthenticatedSessionContext = Depends(get_authenticated_session),
 ) -> User:
     return context.user
+
+
+@router.post(
+    "/logout",
+    dependencies=[Depends(require_csrf)],
+)
+def logout(
+    response: Response,
+    context: AuthenticatedSessionContext = Depends(get_authenticated_session),
+    db: Session = Depends(get_db),
+    settings: Settings = Depends(get_app_settings),
+) -> dict[str, str]:
+    try:
+        current_session = db.get(UserSession, context.session_id)
+        if current_session is not None:
+            revoke_session(current_session)
+            db.commit()
+    except SQLAlchemyError:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Authentication service unavailable.",
+        ) from None
+    except Exception:
+        db.rollback()
+        raise
+
+    clear_auth_cookies(response, settings)
+    return {"status": "ok"}
