@@ -15,9 +15,15 @@ In a terminal, run:
 
 ```powershell
 cd frontend
+Copy-Item .env.example .env
 npm install
 npm run dev
 ```
+
+The frontend API client uses `VITE_API_BASE_URL` from this file. The example
+points to the local backend at `http://127.0.0.1:8001/api/v1`; update the value
+for a different local or deployed API. Do not put secrets in Vite environment
+variables because they are included in browser code.
 
 Vite prints the local URL after the development server starts. To verify the
 frontend build, run `npm run build` from the `frontend` directory.
