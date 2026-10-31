@@ -1,4 +1,11 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import type { ReactNode } from 'react'
 
 import { ApiError, apiClient } from './api/client.ts'
@@ -22,7 +29,9 @@ type AuthContextValue = {
   isAuthenticated: boolean
   isLoading: boolean
   error: string | null
+  isLoggingOut: boolean
   refreshUser: () => Promise<void>
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -66,6 +75,22 @@ function getCurrentUser(): Promise<AuthenticatedUser | null> {
   return currentUserRequest
 }
 
+function getCsrfCookie(): string | null {
+  const cookie = document.cookie
+    .split('; ')
+    .find((item) => item.startsWith('flowboard_csrf='))
+
+  if (!cookie) {
+    return null
+  }
+
+  try {
+    return decodeURIComponent(cookie.slice('flowboard_csrf='.length)) || null
+  } catch {
+    return null
+  }
+}
+
 type AuthProviderProps = {
   children: ReactNode
 }
@@ -74,6 +99,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<AuthenticatedUser | null>(null)
   const [status, setStatus] = useState<AuthenticationStatus>('loading')
   const [error, setError] = useState<string | null>(null)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const logoutInProgress = useRef(false)
 
   const refreshUser = useCallback(async () => {
     setStatus('loading')
@@ -87,6 +114,31 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setUser(null)
       setStatus('error')
       setError('Unable to verify your session. Please try again.')
+    }
+  }, [])
+
+  const logout = useCallback(async () => {
+    if (logoutInProgress.current) {
+      return
+    }
+
+    logoutInProgress.current = true
+    setIsLoggingOut(true)
+    try {
+      const csrfToken = getCsrfCookie()
+      if (!csrfToken) {
+        throw new Error('The logout request could not be verified.')
+      }
+
+      await apiClient.post('auth/logout', undefined, {
+        'X-CSRF-Token': csrfToken,
+      })
+      setUser(null)
+      setStatus('unauthenticated')
+      setError(null)
+    } finally {
+      logoutInProgress.current = false
+      setIsLoggingOut(false)
     }
   }, [])
 
@@ -123,7 +175,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isAuthenticated: status === 'authenticated',
         isLoading: status === 'loading',
         error,
+        isLoggingOut,
         refreshUser,
+        logout,
       }}
     >
       {children}

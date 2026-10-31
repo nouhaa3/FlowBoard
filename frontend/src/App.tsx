@@ -232,7 +232,9 @@ function App() {
 
 function Dashboard({ user }: { user: AuthenticatedUser }) {
   const { theme, toggleTheme } = useTheme()
+  const { isLoggingOut, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [logoutError, setLogoutError] = useState<string | null>(null)
   const [activePage, setActivePage] = useState<ActivePage>('overview')
   const nextTheme = theme === 'light' ? 'dark' : 'light'
   const pageTitle =
@@ -281,6 +283,15 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
 
   function closeSidebar() {
     setIsSidebarOpen(false)
+  }
+
+  async function handleLogout() {
+    setLogoutError(null)
+    try {
+      await logout()
+    } catch {
+      setLogoutError('We could not log you out. Please try again.')
+    }
   }
 
   function navigateTo(label: string) {
@@ -365,15 +376,14 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
         </nav>
 
         <div className="mt-auto border-t border-border pt-5">
-          <button
-            type="button"
-            className="flex w-full items-center gap-3 rounded-2xl border border-transparent p-2 text-left transition-[background-color,transform] hover:border-border hover:bg-background active:translate-y-px"
-            aria-label={`User profile: ${user.display_name}`}
-          >
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-surface bg-coral-soft text-sm font-semibold text-cocoa shadow-sm ring-1 ring-coral/20">
+          <div className="flex items-center gap-3 rounded-2xl border border-transparent p-2">
+            <span
+              aria-hidden="true"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-surface bg-coral-soft text-sm font-semibold text-cocoa shadow-sm ring-1 ring-coral/20"
+            >
               {userInitials}
             </span>
-            <span className="min-w-0">
+            <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium text-foreground">
                 {user.display_name}
               </span>
@@ -381,6 +391,19 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
                 {user.email}
               </span>
             </span>
+          </div>
+          {logoutError && (
+            <p className="px-2 pb-2 text-xs leading-5 text-coral" role="alert">
+              {logoutError}
+            </p>
+          )}
+          <button
+            type="button"
+            onClick={() => void handleLogout()}
+            disabled={isLoggingOut}
+            className="mt-1 flex min-h-10 w-full items-center rounded-xl px-3 text-sm font-medium text-muted transition-colors hover:bg-background hover:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoggingOut ? 'Signing out...' : 'Log out'}
           </button>
         </div>
       </aside>

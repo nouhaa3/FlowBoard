@@ -30,6 +30,7 @@ async function request<T>(
   method: HttpMethod,
   path: string,
   body?: unknown,
+  customHeaders?: HeadersInit,
 ): Promise<ApiResult<T>> {
   if (!apiBaseUrl) {
     throw new ApiError(
@@ -42,6 +43,9 @@ async function request<T>(
   if (body !== undefined) {
     headers.set('Content-Type', 'application/json')
   }
+  new Headers(customHeaders).forEach((value, key) => {
+    headers.set(key, value)
+  })
 
   let response: Response
   try {
@@ -106,8 +110,12 @@ async function request<T>(
 }
 
 export const apiClient = {
-  get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body),
-  patch: <T>(path: string, body?: unknown) => request<T>('PATCH', path, body),
-  delete: <T>(path: string) => request<T>('DELETE', path),
+  get: <T>(path: string, headers?: HeadersInit) =>
+    request<T>('GET', path, undefined, headers),
+  post: <T>(path: string, body?: unknown, headers?: HeadersInit) =>
+    request<T>('POST', path, body, headers),
+  patch: <T>(path: string, body?: unknown, headers?: HeadersInit) =>
+    request<T>('PATCH', path, body, headers),
+  delete: <T>(path: string, headers?: HeadersInit) =>
+    request<T>('DELETE', path, undefined, headers),
 }
