@@ -7,6 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.v1.auth import router as auth_router
+from app.api.v1.projects import router as projects_router
 from app.core.config import Settings, get_settings
 from app.db.session import get_engine
 
@@ -22,10 +23,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         CORSMiddleware,
         allow_origins=app_settings.allowed_frontend_origins,
         allow_credentials=True,
-        allow_methods=["GET", "POST", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "X-CSRF-Token"],
     )
     application.include_router(auth_router, prefix="/api/v1/auth")
+    application.include_router(projects_router, prefix="/api/v1/projects")
 
     @application.get("/health")
     def health_check() -> dict[str, str]:
