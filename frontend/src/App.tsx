@@ -1,4 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useAuth } from './AuthContext.tsx'
+import type { AuthenticatedUser } from './AuthContext.tsx'
+import {
+  AuthenticationError,
+  AuthenticationLoading,
+  AuthPage,
+} from './AuthPage.tsx'
 import CalendarPage from './CalendarPage.tsx'
 import MyTasksPage from './MyTasksPage.tsx'
 import ProjectsPage from './ProjectsPage.tsx'
@@ -201,6 +208,29 @@ function MetricIcon({ name }: { name: MetricIconName }) {
 }
 
 function App() {
+  const { user, status, error, refreshUser } = useAuth()
+
+  if (status === 'loading') {
+    return <AuthenticationLoading />
+  }
+
+  if (status === 'error') {
+    return (
+      <AuthenticationError
+        message={error ?? 'Please try again in a moment.'}
+        onRetry={() => void refreshUser()}
+      />
+    )
+  }
+
+  if (status === 'unauthenticated' || user === null) {
+    return <AuthPage />
+  }
+
+  return <Dashboard user={user} />
+}
+
+function Dashboard({ user }: { user: AuthenticatedUser }) {
   const { theme, toggleTheme } = useTheme()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [activePage, setActivePage] = useState<ActivePage>('overview')
@@ -230,6 +260,13 @@ function App() {
     month: 'long',
     day: 'numeric',
   }).format(new Date())
+  const userInitials = user.display_name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase() ?? '')
+    .join('')
 
   useEffect(() => {
     if (!isSidebarOpen) return
@@ -331,17 +368,17 @@ function App() {
           <button
             type="button"
             className="flex w-full items-center gap-3 rounded-2xl border border-transparent p-2 text-left transition-[background-color,transform] hover:border-border hover:bg-background active:translate-y-px"
-            aria-label="User profile: Alex Morgan, workspace member"
+            aria-label={`User profile: ${user.display_name}`}
           >
             <span className="flex size-11 shrink-0 items-center justify-center rounded-full border-2 border-surface bg-coral-soft text-sm font-semibold text-cocoa shadow-sm ring-1 ring-coral/20">
-              AM
+              {userInitials}
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-foreground">
-                Alex Morgan
+                {user.display_name}
               </span>
               <span className="mt-0.5 block truncate text-xs text-muted">
-                Workspace member
+                {user.email}
               </span>
             </span>
           </button>
@@ -455,7 +492,7 @@ function App() {
                     id="welcome-heading"
                     className="mt-5 max-w-lg text-3xl font-semibold leading-tight tracking-tight text-cocoa sm:text-4xl lg:text-[2.75rem]"
                   >
-                    Good afternoon, Nouha
+                    Good afternoon, {user.display_name}
                     <span aria-hidden="true" className="ml-2 inline-block">
                       <svg
                         className="inline size-7 -translate-y-1 text-coral sm:size-8"
