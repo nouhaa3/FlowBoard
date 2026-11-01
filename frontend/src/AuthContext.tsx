@@ -9,6 +9,7 @@ import {
 import type { ReactNode } from 'react'
 
 import { ApiError, apiClient } from './api/client.ts'
+import { getCsrfToken } from './api/csrf.ts'
 
 export type AuthenticatedUser = {
   id: string
@@ -75,22 +76,6 @@ function getCurrentUser(): Promise<AuthenticatedUser | null> {
   return currentUserRequest
 }
 
-function getCsrfCookie(): string | null {
-  const cookie = document.cookie
-    .split('; ')
-    .find((item) => item.startsWith('flowboard_csrf='))
-
-  if (!cookie) {
-    return null
-  }
-
-  try {
-    return decodeURIComponent(cookie.slice('flowboard_csrf='.length)) || null
-  } catch {
-    return null
-  }
-}
-
 type AuthProviderProps = {
   children: ReactNode
 }
@@ -125,7 +110,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     logoutInProgress.current = true
     setIsLoggingOut(true)
     try {
-      const csrfToken = getCsrfCookie()
+      const csrfToken = getCsrfToken()
       if (!csrfToken) {
         throw new Error('The logout request could not be verified.')
       }

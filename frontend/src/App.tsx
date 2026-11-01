@@ -17,6 +17,28 @@ type ActivePage = 'overview' | 'projects' | 'myTasks' | 'calendar' | 'settings'
 type MetricIconName = 'projects' | 'tasks' | 'progress' | 'completed'
 type TaskStatus = 'To Do' | 'In Progress' | 'Done'
 
+const pagePaths: Record<ActivePage, string> = {
+  overview: '/overview',
+  projects: '/projects',
+  myTasks: '/tasks',
+  calendar: '/calendar',
+  settings: '/settings',
+}
+
+const pageForPath = Object.fromEntries(
+  Object.entries(pagePaths).map(([page, path]) => [path, page]),
+) as Record<string, ActivePage | undefined>
+
+function getPageFromLocation(): ActivePage {
+  const page = pageForPath[window.location.pathname]
+  if (page) {
+    return page
+  }
+
+  window.history.replaceState(null, '', pagePaths.overview)
+  return 'overview'
+}
+
 const summaryMetrics: {
   label: string
   value: number
@@ -235,7 +257,7 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
   const { isLoggingOut, logout } = useAuth()
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [logoutError, setLogoutError] = useState<string | null>(null)
-  const [activePage, setActivePage] = useState<ActivePage>('overview')
+  const [activePage, setActivePage] = useState<ActivePage>(getPageFromLocation)
   const nextTheme = theme === 'light' ? 'dark' : 'light'
   const pageTitle =
     activePage === 'projects'
@@ -281,6 +303,16 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isSidebarOpen])
 
+  useEffect(() => {
+    function handlePopState() {
+      setActivePage(getPageFromLocation())
+      setIsSidebarOpen(false)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
   function closeSidebar() {
     setIsSidebarOpen(false)
   }
@@ -294,19 +326,12 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
     }
   }
 
-  function navigateTo(label: string) {
-    if (label === 'Overview') {
-      setActivePage('overview')
-    } else if (label === 'Projects') {
-      setActivePage('projects')
-    } else if (label === 'My Tasks') {
-      setActivePage('myTasks')
-    } else if (label === 'Calendar') {
-      setActivePage('calendar')
-    } else if (label === 'Settings') {
-      setActivePage('settings')
+  function navigateTo(page: ActivePage) {
+    const path = pagePaths[page]
+    if (window.location.pathname !== path) {
+      window.history.pushState(null, '', path)
     }
-
+    setActivePage(page)
     closeSidebar()
   }
 
@@ -331,11 +356,11 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
         }`}
       >
         <a
-          href="#overview"
+          href={pagePaths.overview}
           className="mb-10 flex items-center gap-3 rounded-xl px-2 py-1 text-foreground"
           onClick={(event) => {
             event.preventDefault()
-            navigateTo('Overview')
+            navigateTo('overview')
           }}
         >
           <span className="flex size-10 items-center justify-center rounded-2xl bg-primary text-sm font-bold text-primary-foreground shadow-tactile">
@@ -349,19 +374,24 @@ function Dashboard({ user }: { user: AuthenticatedUser }) {
         </p>
         <nav className="flex flex-col gap-1" aria-label="Workspace">
           {navigationItems.map(({ label, icon }) => {
-            const isActive =
-              (label === 'Overview' && activePage === 'overview') ||
-              (label === 'Projects' && activePage === 'projects') ||
-              (label === 'My Tasks' && activePage === 'myTasks') ||
-              (label === 'Calendar' && activePage === 'calendar') ||
-              (label === 'Settings' && activePage === 'settings')
+            const page: ActivePage =
+              label === 'Overview'
+                ? 'overview'
+                : label === 'Projects'
+                  ? 'projects'
+                  : label === 'My Tasks'
+                    ? 'myTasks'
+                    : label === 'Calendar'
+                      ? 'calendar'
+                      : 'settings'
+            const isActive = activePage === page
 
             return (
               <button
                 key={label}
                 type="button"
                 aria-current={isActive ? 'page' : undefined}
-                onClick={() => navigateTo(label)}
+                onClick={() => navigateTo(page)}
                 className={`flex min-h-12 items-center gap-3 rounded-xl border px-3 text-sm font-medium transition-[background-color,color,transform,box-shadow] ${
                   isActive
                     ? 'border-primary/15 bg-sage-soft text-primary shadow-sm'

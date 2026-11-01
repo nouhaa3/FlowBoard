@@ -3,6 +3,7 @@ export type ApiErrorCode =
   | 'network'
   | 'http'
   | 'invalid_response'
+  | 'csrf'
 
 export class ApiError extends Error {
   readonly code: ApiErrorCode
