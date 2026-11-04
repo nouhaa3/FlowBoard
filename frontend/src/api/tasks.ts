@@ -21,6 +21,14 @@ export type CreateTaskInput = {
   due_date?: string | null
 }
 
+export type UpdateTaskInput = {
+  title?: string
+  description?: string | null
+  status?: 'todo' | 'in_progress' | 'done'
+  priority?: 'low' | 'medium' | 'high'
+  due_date?: string | null
+}
+
 function isTask(value: unknown): value is Task {
   if (typeof value !== 'object' || value === null) {
     return false
@@ -83,4 +91,45 @@ export async function createTask(
   }
 
   return result
+}
+
+export async function updateTask(
+  taskId: string,
+  input: UpdateTaskInput,
+): Promise<Task> {
+  const csrfToken = getCsrfToken()
+  if (!csrfToken) {
+    throw new ApiError(
+      'The request could not be verified. Refresh the page and try again.',
+      'csrf',
+    )
+  }
+
+  const result = await apiClient.patch<unknown>(
+    `tasks/${encodeURIComponent(taskId)}`,
+    input,
+    { 'X-CSRF-Token': csrfToken },
+  )
+  if (!isTask(result)) {
+    throw new ApiError(
+      'The API returned an invalid task response.',
+      'invalid_response',
+    )
+  }
+
+  return result
+}
+
+export async function deleteTask(taskId: string): Promise<void> {
+  const csrfToken = getCsrfToken()
+  if (!csrfToken) {
+    throw new ApiError(
+      'The request could not be verified. Refresh the page and try again.',
+      'csrf',
+    )
+  }
+
+  await apiClient.delete<void>(`tasks/${encodeURIComponent(taskId)}`, {
+    'X-CSRF-Token': csrfToken,
+  })
 }

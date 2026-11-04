@@ -6,9 +6,12 @@ import { getProjects } from './api/projects.ts'
 import type { Project } from './api/projects.ts'
 import {
   createTask,
+  deleteTask,
   getProjectTasks,
+  updateTask,
   type CreateTaskInput,
   type Task as ApiTask,
+  type UpdateTaskInput,
 } from './api/tasks.ts'
 
 type TaskStatus = 'To Do' | 'In Progress' | 'Done'
@@ -20,6 +23,7 @@ type Task = {
   id: string
   title: string
   project: string
+  description: string | null
   status: TaskStatus
   priority: TaskPriority
   dueDate: string | null
@@ -77,6 +81,7 @@ function toDisplayTask(task: ApiTask, project: string): Task {
     id: task.id,
     title: task.title,
     project,
+    description: task.description,
     status: statusLabels[task.status],
     priority: priorityLabels[task.priority],
     dueDate,
@@ -460,6 +465,461 @@ function CreateTaskModal({
   )
 }
 
+function EditTaskModal({
+  task,
+  onClose,
+  onUpdated,
+}: {
+  task: Task
+  onClose: () => void
+  onUpdated: (updatedTask: ApiTask) => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const titleRef = useRef<HTMLInputElement>(null)
+  const submissionInProgress = useRef(false)
+  const [title, setTitle] = useState(task.title)
+  const [description, setDescription] = useState(task.description ?? '')
+  const [status, setStatus] = useState(
+    taskStatusOptions.find((option) => option.label === task.status)?.value ??
+      'todo',
+  )
+  const [priority, setPriority] = useState(
+    taskPriorityOptions.find((option) => option.label === task.priority)?.value ??
+      'medium',
+  )
+  const [dueDate, setDueDate] = useState(task.dueDate ?? '')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog.showModal()
+    titleRef.current?.focus()
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      if (dialog.open) dialog.close()
+    }
+  }, [])
+
+  function closeDialog() {
+    if (submissionInProgress.current) return
+    dialogRef.current?.close()
+    onClose()
+  }
+
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault()
+    closeDialog()
+  }
+
+  function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
+    if (event.target === event.currentTarget) {
+      closeDialog()
+    }
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (submissionInProgress.current) return
+
+    setErrorMessage(null)
+    setNoticeMessage(null)
+    const trimmedTitle = title.trim()
+    if (!trimmedTitle) {
+      setErrorMessage('Enter a task title to continue.')
+      titleRef.current?.focus()
+      return
+    }
+    if (trimmedTitle.length > 200) {
+      setErrorMessage('Task titles must be 200 characters or fewer.')
+      titleRef.current?.focus()
+      return
+    }
+
+    const normalizedDescription = description.trim() || null
+    const updates: UpdateTaskInput = {}
+    if (trimmedTitle !== task.title) updates.title = trimmedTitle
+    if (normalizedDescription !== task.description) {
+      updates.description = normalizedDescription
+    }
+    if (status !== taskStatusOptions.find((option) => option.label === task.status)?.value) {
+      updates.status = status
+    }
+    if (
+      priority !==
+      taskPriorityOptions.find((option) => option.label === task.priority)?.value
+    ) {
+      updates.priority = priority
+    }
+    if ((dueDate || null) !== task.dueDate) updates.due_date = dueDate || null
+
+    if (Object.keys(updates).length === 0) {
+      setNoticeMessage('No changes to save.')
+      return
+    }
+
+    submissionInProgress.current = true
+    setIsSubmitting(true)
+    try {
+      const updatedTask = await updateTask(task.id, updates)
+      dialogRef.current?.close()
+      onUpdated(updatedTask)
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.code === 'csrf') {
+        setErrorMessage(
+          'Security verification failed. Please refresh the page and try again.',
+        )
+      } else if (error instanceof ApiError && error.status === 422) {
+        setErrorMessage('Check the task details and try again.')
+      } else if (error instanceof ApiError && error.status === 401) {
+        setErrorMessage('Your session has expired. Sign in again to update this task.')
+      } else if (error instanceof ApiError && error.status === 403) {
+        setErrorMessage('We could not verify this request. Refresh and try again.')
+      } else if (error instanceof ApiError && error.status === 404) {
+        setErrorMessage('This task is no longer available. Refresh the task list and try again.')
+      } else if (error instanceof ApiError && error.status === 401) {
+        setErrorMessage('Your session has expired. Sign in again to delete this task.')
+      } else if (error instanceof ApiError && error.status === 403) {
+        setErrorMessage('We could not verify this request. Refresh and try again.')
+      } else if (error instanceof ApiError && error.code === 'network') {
+        setErrorMessage('Check your connection and try saving the task again.')
+      } else if (error instanceof ApiError && error.status !== null && error.status >= 500) {
+        setErrorMessage('The task service is temporarily unavailable. Please try again.')
+      } else {
+        setErrorMessage('We could not update your task. Please try again.')
+      }
+    } finally {
+      submissionInProgress.current = false
+      setIsSubmitting(false)
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="edit-task-title"
+      aria-describedby="edit-task-description"
+      aria-modal="true"
+      className="project-create-dialog fixed inset-0 m-0 grid h-dvh w-screen max-h-none max-w-none place-items-center overflow-y-auto bg-transparent p-4 text-foreground"
+      onCancel={handleCancel}
+      onClick={handleBackdropClick}
+    >
+      <section className="project-create-panel my-auto w-full max-w-lg rounded-[1.75rem] border border-border bg-surface p-6 shadow-panel sm:p-8">
+        <div className="flex items-start justify-between gap-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+              Make an adjustment
+            </p>
+            <h2
+              id="edit-task-title"
+              className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl"
+            >
+              Edit task
+            </h2>
+            <p
+              id="edit-task-description"
+              className="mt-2 text-sm leading-6 text-muted"
+            >
+              Update the details while keeping it in {task.project}.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close dialog"
+            disabled={isSubmitting}
+            onClick={closeDialog}
+            className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted transition-colors hover:bg-sage-soft hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <span aria-hidden="true" className="text-xl leading-none">×</span>
+          </button>
+        </div>
+
+        <form className="mt-7 space-y-5" onSubmit={handleSubmit}>
+          <label className="block">
+            <span className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+              Task title <span className="text-coral" aria-hidden="true">*</span>
+              <span className="ml-auto text-xs font-normal text-muted">
+                {title.length}/200
+              </span>
+            </span>
+            <input
+              ref={titleRef}
+              autoComplete="off"
+              autoFocus
+              maxLength={200}
+              required
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              className="min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium">Project</span>
+            <input
+              readOnly
+              value={task.project}
+              aria-describedby="edit-task-project-help"
+              className="min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-muted"
+            />
+            <span id="edit-task-project-help" className="mt-1 block text-xs text-muted">
+              A task cannot be moved to another project here.
+            </span>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 flex items-center justify-between gap-3 text-sm font-medium">
+              Description <span className="text-xs font-normal text-muted">Optional</span>
+              <span className="ml-auto text-xs font-normal text-muted">
+                {description.length}/10,000
+              </span>
+            </span>
+            <textarea
+              maxLength={10_000}
+              rows={4}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+              className="w-full resize-y rounded-xl border border-border bg-background px-4 py-3 text-sm leading-6 text-foreground outline-none transition placeholder:text-muted focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
+            />
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium">Status</span>
+              <select
+                value={status}
+                onChange={(event) => {
+                  const selected = taskStatusOptions.find(
+                    (option) => option.value === event.target.value,
+                  )
+                  if (selected) setStatus(selected.value)
+                }}
+                className="min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
+              >
+                {taskStatusOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block">
+              <span className="mb-2 block text-sm font-medium">Priority</span>
+              <select
+                value={priority}
+                onChange={(event) => {
+                  const selected = taskPriorityOptions.find(
+                    (option) => option.value === event.target.value,
+                  )
+                  if (selected) setPriority(selected.value)
+                }}
+                className="min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
+              >
+                {taskPriorityOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <label className="block">
+            <span className="mb-2 block text-sm font-medium">
+              Due date <span className="text-xs font-normal text-muted">Optional</span>
+            </span>
+            <input
+              type="date"
+              value={dueDate}
+              onChange={(event) => setDueDate(event.target.value)}
+              className="min-h-12 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition focus-visible:border-primary focus-visible:ring-4 focus-visible:ring-primary/15"
+            />
+          </label>
+
+          {errorMessage && (
+            <p
+              role="alert"
+              className="rounded-xl border border-coral/25 bg-coral-soft/60 px-4 py-3 text-sm leading-5 text-cocoa"
+            >
+              {errorMessage}
+            </p>
+          )}
+          {noticeMessage && (
+            <p
+              role="status"
+              className="rounded-xl border border-primary/20 bg-sage-soft px-4 py-3 text-sm leading-5 text-primary"
+            >
+              {noticeMessage}
+            </p>
+          )}
+
+          <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={closeDialog}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-background px-5 text-sm font-semibold text-foreground transition-colors hover:bg-sage-soft disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-tactile transition-[transform,filter] hover:-translate-y-0.5 hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-65"
+            >
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </section>
+    </dialog>
+  )
+}
+
+function DeleteTaskDialog({
+  task,
+  onClose,
+  onDeleted,
+}: {
+  task: Task
+  onClose: () => void
+  onDeleted: (task: Task) => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const cancelRef = useRef<HTMLButtonElement>(null)
+  const requestInProgress = useRef(false)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    if (!dialog) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    dialog.showModal()
+    cancelRef.current?.focus()
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      if (dialog.open) dialog.close()
+    }
+  }, [])
+
+  function closeDialog() {
+    if (requestInProgress.current) return
+    dialogRef.current?.close()
+    onClose()
+  }
+
+  function handleCancel(event: SyntheticEvent<HTMLDialogElement>) {
+    event.preventDefault()
+    closeDialog()
+  }
+
+  function handleBackdropClick(event: MouseEvent<HTMLDialogElement>) {
+    if (event.target === event.currentTarget) {
+      closeDialog()
+    }
+  }
+
+  async function handleDelete() {
+    if (requestInProgress.current) return
+
+    requestInProgress.current = true
+    setIsDeleting(true)
+    setErrorMessage(null)
+    try {
+      await deleteTask(task.id)
+      dialogRef.current?.close()
+      onDeleted(task)
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.code === 'csrf') {
+        setErrorMessage(
+          'Security verification failed. Please refresh the page and try again.',
+        )
+      } else if (error instanceof ApiError && error.status === 404) {
+        setErrorMessage('This task is no longer available. Refresh the task list and try again.')
+      } else if (error instanceof ApiError && error.code === 'network') {
+        setErrorMessage('Check your connection and try deleting the task again.')
+      } else if (error instanceof ApiError && error.status !== null && error.status >= 500) {
+        setErrorMessage('The task service is temporarily unavailable. Please try again.')
+      } else {
+        setErrorMessage('We could not delete this task. Please try again.')
+      }
+    } finally {
+      requestInProgress.current = false
+      setIsDeleting(false)
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="delete-task-title"
+      aria-describedby="delete-task-description"
+      aria-modal="true"
+      className="project-create-dialog fixed inset-0 m-0 grid h-dvh w-screen max-h-none max-w-none place-items-center overflow-y-auto bg-transparent p-4 text-foreground"
+      onCancel={handleCancel}
+      onClick={handleBackdropClick}
+    >
+      <section className="project-create-panel my-auto w-full max-w-md rounded-[1.75rem] border border-border bg-surface p-6 shadow-panel sm:p-8">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-coral">
+          This cannot be undone
+        </p>
+        <h2
+          id="delete-task-title"
+          className="mt-2 text-2xl font-semibold tracking-tight"
+        >
+          Delete task?
+        </h2>
+        <p
+          id="delete-task-description"
+          className="mt-3 break-words text-sm leading-6 text-muted"
+        >
+          Are you sure you want to delete <strong className="text-foreground">"{task.title}"</strong>?
+          This task will be permanently removed.
+        </p>
+
+        {errorMessage && (
+          <p
+            role="alert"
+            className="mt-5 rounded-xl border border-coral/25 bg-coral-soft/60 px-4 py-3 text-sm leading-5 text-cocoa"
+          >
+            {errorMessage}
+          </p>
+        )}
+
+        <div className="mt-7 flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+          <button
+            ref={cancelRef}
+            type="button"
+            disabled={isDeleting}
+            onClick={closeDialog}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-border bg-background px-5 text-sm font-semibold text-foreground transition-colors hover:bg-sage-soft disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={isDeleting}
+            onClick={() => void handleDelete()}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl bg-coral px-5 text-sm font-semibold text-white shadow-tactile transition-[transform,filter] hover:-translate-y-0.5 hover:brightness-105 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-65"
+          >
+            {isDeleting ? 'Deleting...' : 'Delete Task'}
+          </button>
+        </div>
+      </section>
+    </dialog>
+  )
+}
+
 function MyTasksPage() {
   const [tasks, setTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -470,6 +930,8 @@ function MyTasksPage() {
   const [isProjectsLoading, setIsProjectsLoading] = useState(true)
   const [hasProjectsLoadError, setHasProjectsLoadError] = useState(false)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [deletingTask, setDeletingTask] = useState<Task | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('All')
@@ -618,6 +1080,30 @@ function MyTasksPage() {
     ])
   }
 
+  function handleTaskUpdated(updatedTask: ApiTask) {
+    const projectName =
+      projects.find((project) => project.id === updatedTask.project_id)?.name ??
+      'Unknown project'
+    const displayTask = toDisplayTask(updatedTask, projectName)
+    setTasks((currentTasks) =>
+      currentTasks.map((currentTask) =>
+        currentTask.id === displayTask.id ? displayTask : currentTask,
+      ),
+    )
+    setSuccessMessage(`Task "${updatedTask.title}" updated successfully.`)
+    setEditingTask(null)
+    setTaskRefreshCount((count) => count + 1)
+  }
+
+  function handleTaskDeleted(task: Task) {
+    setTasks((currentTasks) =>
+      currentTasks.filter((currentTask) => currentTask.id !== task.id),
+    )
+    setSuccessMessage(`Task "${task.title}" deleted successfully.`)
+    setDeletingTask(null)
+    setTaskRefreshCount((count) => count + 1)
+  }
+
   function retryLoading() {
     if (hasProjectsLoadError) {
       retryProjects()
@@ -681,6 +1167,22 @@ function MyTasksPage() {
           onClose={() => setIsCreateModalOpen(false)}
           onCreated={handleTaskCreated}
           onRetryProjects={retryProjects}
+        />
+      )}
+      {editingTask && (
+        <EditTaskModal
+          key={editingTask.id}
+          task={editingTask}
+          onClose={() => setEditingTask(null)}
+          onUpdated={handleTaskUpdated}
+        />
+      )}
+      {deletingTask && (
+        <DeleteTaskDialog
+          key={deletingTask.id}
+          task={deletingTask}
+          onClose={() => setDeletingTask(null)}
+          onDeleted={handleTaskDeleted}
         />
       )}
 
@@ -794,7 +1296,7 @@ function MyTasksPage() {
             {filteredTasks.map((task, index) => (
               <li
                 key={task.id}
-                className={`grid min-w-0 gap-3 p-4 transition-colors hover:bg-background/70 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_auto_auto] sm:items-center sm:gap-4 sm:px-5 ${
+                className={`grid min-w-0 gap-3 p-4 transition-colors hover:bg-background/70 sm:grid-cols-[minmax(0,1.5fr)_auto_auto_auto_auto_auto] sm:items-center sm:gap-4 sm:px-5 ${
                   index > 0 ? 'border-t border-border' : ''
                 }`}
               >
@@ -833,6 +1335,30 @@ function MyTasksPage() {
                   ) : (
                     <span>{task.dueDateLabel}</span>
                   )}
+                </div>
+                <div className="flex flex-wrap items-center justify-end gap-2 sm:justify-start">
+                  <button
+                    type="button"
+                    aria-label={`Edit ${task.title}`}
+                    onClick={() => {
+                      setSuccessMessage(null)
+                      setEditingTask(task)
+                    }}
+                    className="min-h-10 rounded-lg border border-border bg-background px-3 text-sm font-semibold text-foreground transition-colors hover:bg-sage-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`Delete ${task.title}`}
+                    onClick={() => {
+                      setSuccessMessage(null)
+                      setDeletingTask(task)
+                    }}
+                    className="min-h-10 rounded-lg border border-coral/30 bg-coral-soft/50 px-3 text-sm font-semibold text-coral transition-colors hover:bg-coral-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-coral"
+                  >
+                    Delete
+                  </button>
                 </div>
               </li>
             ))}
